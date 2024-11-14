@@ -1,5 +1,5 @@
 [package]
-name = "gtk4-test"
+name = "gtk-bar"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,4 +9,6 @@ chronos = "0.0.0"
 gtk4 = {version = "0.9.3", features = ["v4_16"]}
 gtk4-layer-shell = "0.4.0"
 sass-rs = "0.2.2"
+serde = { version = "1.0.214", features = ["derive"] }
+serde_json = "1.0.132"
 tokio = { version = "1.41.0", features = ["full"] }

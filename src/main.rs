@@ -4,7 +4,7 @@ use gtk::gdk;
 use gtk::prelude::*;
 use gtk::{
     gio,
-    glib::{self, timeout_add_local, ControlFlow},
+    glib::{self, idle_add_local, idle_add,timeout_add_local, ControlFlow},
     Application, ApplicationWindow, Box, Button, CenterBox, CssProvider, EventControllerMotion,
     GestureClick, Label, Orientation, Overlay, Revealer, RevealerTransitionType, Widget,
 };
@@ -20,18 +20,27 @@ use tokio::sync::mpsc;
 mod widgets;
 use widgets::battery;
 use widgets::clock;
+use widgets::hyprland;
 use widgets::root;
 
 fn build_ui(app: &Application) {
+    let mut hyprland = hyprland::new();
     let reveal = Button::builder().label("Hello, World!").build();
-    let spacer = Label::new(None);
+    let spacer = Box::default();
     let mut root = root::new();
     root.spacing(20);
-    root.left(vec![&Label::new(None)]);
+    let workspace = hyprland.workspaces();
+    root.left(vec![&workspace]);
+    // root.left(vec![&Label::new(None)]);
     root.center(vec![&reveal]);
     root.right(vec![&clock::new(), &battery::new(), &spacer]);
 
     window(app, &root);
+    // let rt = tokio::runtime::Runtime::new().unwrap();
+    tokio::task::spawn_blocking(move || {
+        hyprland.listen();
+    });
+
 
     reveal.connect_clicked(move |_| {
         root.clone().transparent(!root.transparency());

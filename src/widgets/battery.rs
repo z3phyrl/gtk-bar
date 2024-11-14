@@ -27,7 +27,7 @@ fn fmt() -> String {
     format!(
         "{}{} {}",
         icons[if let Ok(percent) = percent.trim().parse::<usize>() {
-            percent / 10
+            (percent / 10) - 1
         } else {
             0
         }],
@@ -40,10 +40,11 @@ fn fmt() -> String {
     )
 }
 
-pub fn new() -> Label {
-    let widget = Label::new(Some(&fmt()));
-    widget.add_css_class("battery");
-    let batt = widget.clone();
+pub fn new() -> Box {
+    let widget = Box::default();
+    let batt = Label::new(Some(&fmt()));
+    batt.add_css_class("battery");
+    widget.append(&batt);
     timeout_add_local(Duration::from_secs(1), move || {
         batt.set_label(&fmt());
         ControlFlow::Continue
