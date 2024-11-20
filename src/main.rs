@@ -4,7 +4,7 @@ use gtk::gdk;
 use gtk::prelude::*;
 use gtk::{
     gio,
-    glib::{self, idle_add_local, idle_add,timeout_add_local, ControlFlow},
+    glib::{self, idle_add, idle_add_local, timeout_add_local,spawn_future, ControlFlow},
     Application, ApplicationWindow, Box, Button, CenterBox, CssProvider, EventControllerMotion,
     GestureClick, Label, Orientation, Overlay, Revealer, RevealerTransitionType, Widget,
 };
@@ -17,11 +17,13 @@ use std::thread;
 use std::time::Duration;
 use tokio::sync::mpsc;
 
+mod libs;
 mod widgets;
+use libs::hyprland;
 use widgets::battery;
 use widgets::clock;
-use widgets::hyprland;
 use widgets::root;
+use widgets::workspaces::HyprlandWorkspacesExt;
 
 fn build_ui(app: &Application) {
     let mut hyprland = hyprland::new();
@@ -30,17 +32,14 @@ fn build_ui(app: &Application) {
     let mut root = root::new();
     root.spacing(20);
     let workspace = hyprland.workspaces();
-    root.left(vec![&workspace]);
-    // root.left(vec![&Label::new(None)]);
+    root.left(vec![&spacer, &workspace]);
     root.center(vec![&reveal]);
     root.right(vec![&clock::new(), &battery::new(), &spacer]);
 
     window(app, &root);
-    // let rt = tokio::runtime::Runtime::new().unwrap();
-    tokio::task::spawn_blocking(move || {
-        hyprland.listen();
+    async_std::task::spawn(async move {
+        hyprland.listen().await;
     });
-
 
     reveal.connect_clicked(move |_| {
         root.clone().transparent(!root.transparency());

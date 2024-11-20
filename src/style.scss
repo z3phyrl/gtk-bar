@@ -9,3 +9,22 @@ font-family: 'Mononoki Nerd Font';
 .bg {
   background: rgba($color: #1D2021, $alpha: 0.95);
 }
+
+.workspace {
+  margin: 18px;
+  margin-left: 0px;
+  margin-right: 5px;
+  min-width: 15px;
+  border-radius: 10px;
+  background-color: #FBF1C7;
+}
+
+.w {
+  min-width: 15px;
+}
+.anchor {
+  min-width: 14px;
+}
+.ww {
+  background-color: #FBF1C7;
+}
