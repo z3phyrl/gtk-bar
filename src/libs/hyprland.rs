@@ -1,4 +1,5 @@
-use async_channel::{unbounded, Receiver, Sender};
+// use async_channel::{unbounded, Receiver, Sender, };
+use async_broadcast::{broadcast, Receiver, Sender, InactiveReceiver};
 use chrono::Local;
 use gtk::gdk;
 use gtk::prelude::*;
@@ -24,7 +25,7 @@ pub struct Hyprland {
     hypr_dir: PathBuf,
     events: UnixStream,
     sender: Sender<String>,
-    receiver: Receiver<String>,
+    receiver: InactiveReceiver<String>,
 }
 
 pub fn new() -> Hyprland {
@@ -35,12 +36,12 @@ pub fn new() -> Hyprland {
     hypr_dir.push(hyprland_instance_signature);
     let events_path = hypr_dir.join(".socket2.sock");
     let events = UnixStream::connect(events_path).unwrap();
-    let (sender, receiver) = unbounded();
+    let (sender, receiver) = broadcast(1024);
     Hyprland {
         hypr_dir,
         events,
         sender,
-        receiver,
+        receiver: receiver.deactivate(),
     }
 }
 
@@ -70,13 +71,13 @@ impl Hyprland {
         let events = self.events.try_clone().unwrap();
         let reader = BufReader::new(events);
         for line in reader.lines() {
-            println!("after send");
             if let Ok(line) = line {
-                self.sender.send(line).await.unwrap();
+                println!("sender {:?}", self.sender.len());
+                self.sender.broadcast_direct(line).await.unwrap();
             }
         }
     }
-    pub fn listener(&mut self) -> Receiver<String> {
-        self.receiver.clone()
+    pub fn listener(&self) -> Receiver<String> {
+        self.sender.new_receiver()
     }
 }

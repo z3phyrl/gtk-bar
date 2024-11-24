@@ -4,7 +4,7 @@ use gtk::gdk;
 use gtk::prelude::*;
 use gtk::{
     gio,
-    glib::{self, idle_add, idle_add_local, timeout_add_local,spawn_future, ControlFlow},
+    glib::{self, idle_add, idle_add_local, spawn_future, timeout_add_local, ControlFlow},
     Application, ApplicationWindow, Box, Button, CenterBox, CssProvider, EventControllerMotion,
     GestureClick, Label, Orientation, Overlay, Revealer, RevealerTransitionType, Widget,
 };
@@ -20,37 +20,35 @@ use tokio::sync::mpsc;
 mod libs;
 mod widgets;
 use libs::hyprland;
-use widgets::battery;
-use widgets::clock;
-use widgets::root;
-use widgets::workspaces::HyprlandWorkspacesExt;
+use widgets::{
+    battery, clock,
+    root::{HyprlandRootExt, Root},
+    workspaces::HyprlandWorkspacesExt,
+};
 
 fn build_ui(app: &Application) {
     let mut hyprland = hyprland::new();
-    let reveal = Button::builder().label("Hello, World!").build();
-    let spacer = Box::default();
-    let mut root = root::new();
+    let spacer = || -> Box { Box::default() };
+    let mut root = hyprland.root();
     root.spacing(20);
     let workspace = hyprland.workspaces();
-    root.left(vec![&spacer, &workspace]);
-    root.center(vec![&reveal]);
-    root.right(vec![&clock::new(), &battery::new(), &spacer]);
+    let music = Box::default();
+    music.append(&Label::new(Some("Music")));
+    root.left(vec![&spacer(), &workspace, &music]);
+    root.center(vec![&spacer()]);
+    root.right(vec![&clock::new(), &spacer()]);
 
     window(app, &root);
     async_std::task::spawn(async move {
         hyprland.listen().await;
     });
-
-    reveal.connect_clicked(move |_| {
-        root.clone().transparent(!root.transparency());
-    });
 }
 
-fn window(app: &Application, root: &root::Root) {
+fn window(app: &Application, root: &Root) {
     let window = ApplicationWindow::builder()
         .application(app)
         .css_classes(["bar"])
-        .default_width(1920)
+        .default_width(2560)
         .default_height(50)
         .child(&root.widget())
         .build();
