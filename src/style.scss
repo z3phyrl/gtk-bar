@@ -1,30 +1,43 @@
+$fg: #FBF1C7;
+$bg: #1D2021;
+
+$workspace-width: 12px;
+$workspace-height: 12px;
+$workspace-expand-multiplier: 1.5;
+$special-workspace-color: #B8BB26;
+
 .bar {
-font-family: 'Mononoki Nerd Font';
+  font-family: 'Mononoki';
   font-size: 20px;
   background: transparent;
-  color: #FBF1C7;
+  color: $fg;
 
 }
 
 .bg {
-  background: rgba($color: #1D2021, $alpha: 0.95);
+  background: rgba($color: $bg, $alpha: 0.95);
 }
 
 .workspace {
-  margin: 20px;
+  margin: (50px - $workspace-height) / 2;
   margin-left: 0px;
   margin-right: 5px;
-  min-width: 15px;
-  border-radius: 10px;
-  background-color: #FBF1C7;
+  min-width: $workspace-width;
+  border-radius: $workspace-width;
+  background-color: $fg;
 }
 
-.w {
-  min-width: 15px;
+.expand {
+  min-width: $workspace-width * $workspace-expand-multiplier;
 }
 .anchor {
-  min-width: 14px;
+  min-width: $workspace-width - 1;
 }
-.ww {
-  background-color: #FBF1C7;
+.specialworkspace {
+  margin: (50px - $workspace-height) / 2;
+  margin-left: 0px;
+  margin-right: 5px;
+  min-width: $workspace-width;
+  border-radius: $workspace-width;
+  background-color: $special-workspace-color;
 }

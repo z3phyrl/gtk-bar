@@ -29,7 +29,7 @@ use crate::hyprland::Hyprland;
 
 #[derive(Deserialize, PartialEq)]
 struct WorkspaceInfo {
-    id: u32,
+    id: i32,
     name: String,
 }
 
@@ -53,29 +53,23 @@ impl Root {
     pub fn widget(&self) -> Overlay {
         self.root.clone()
     }
-    pub fn left<W>(&mut self, widgets: Vec<&W>)
+    pub fn left<W>(&mut self, widget: &W)
     where
         W: IsA<Widget>,
     {
-        for widget in widgets {
-            self.left.append(widget);
-        }
+        self.left.append(widget);
     }
-    pub fn center<W>(&mut self, widgets: Vec<&W>)
+    pub fn center<W>(&mut self, widget: &W)
     where
         W: IsA<Widget>,
     {
-        for widget in widgets {
-            self.center.append(widget);
-        }
+        self.center.append(widget);
     }
-    pub fn right<W>(&mut self, widgets: Vec<&W>)
+    pub fn right<W>(&mut self, widget: &W)
     where
         W: IsA<Widget>,
     {
-        for widget in widgets {
-            self.right.append(widget);
-        }
+        self.right.append(widget);
     }
     pub fn transparent(&mut self, transparent: bool) {
         self.bg.set_reveal_child(transparent);
@@ -100,7 +94,6 @@ impl HyprlandRootExt for Hyprland {
             .transition_type(RevealerTransitionType::Crossfade)
             .transition_duration(500)
             .child(&Box::builder().css_classes(["bg"]).build())
-            .reveal_child(true)
             .build();
         let background = bg.clone();
         let root = Overlay::builder().child(&bg).build();
@@ -132,7 +125,7 @@ impl HyprlandRootExt for Hyprland {
                                 if let Some(data) = event.next() {
                                     let data: Vec<&str> = data.split(",").collect();
                                     WorkspaceInfo {
-                                        id: data[0].parse::<u32>().unwrap(),
+                                        id: data[0].parse::<i32>().unwrap(),
                                         name: data[1].to_string(),
                                     }
                                 } else {
@@ -141,7 +134,14 @@ impl HyprlandRootExt for Hyprland {
                             } else {
                                 from_str(&controller.ctl("j/activeworkspace")).unwrap()
                             };
-                            if clients.iter().filter(|c| c.workspace == current_workspace && !c.hidden && !c.floating).count() == 0 {
+                            if clients
+                                .iter()
+                                .filter(|c| {
+                                    c.workspace == current_workspace && !c.hidden && !c.floating
+                                })
+                                .count()
+                                == 0
+                            {
                                 background.set_reveal_child(false);
                             } else {
                                 background.set_reveal_child(true);

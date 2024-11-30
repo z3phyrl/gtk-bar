@@ -24,6 +24,7 @@ use widgets::{
     battery, clock,
     root::{HyprlandRootExt, Root},
     workspaces::HyprlandWorkspacesExt,
+    systray,
 };
 
 fn build_ui(app: &Application) {
@@ -34,9 +35,12 @@ fn build_ui(app: &Application) {
     let workspace = hyprland.workspaces();
     let music = Box::default();
     music.append(&Label::new(Some("Music")));
-    root.left(vec![&spacer(), &workspace, &music]);
-    root.center(vec![&spacer()]);
-    root.right(vec![&clock::new(), &spacer()]);
+    root.left(&spacer());
+    root.left(&workspace);
+    root.left(&music);
+    root.right(&clock::new());
+    root.right(&battery::new());
+    root.right(&spacer());
 
     window(app, &root);
     async_std::task::spawn(async move {
@@ -48,7 +52,7 @@ fn window(app: &Application, root: &Root) {
     let window = ApplicationWindow::builder()
         .application(app)
         .css_classes(["bar"])
-        .default_width(2560)
+        .default_width(1920)
         .default_height(50)
         .child(&root.widget())
         .build();

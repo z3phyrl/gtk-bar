@@ -23,13 +23,13 @@ fn fmt() -> String {
         .unwrap_or(" ".to_string());
     let status =
         std::fs::read_to_string("/sys/class/power_supply/BAT0/status").unwrap_or("󰂃 ".to_string());
-    let icons = ["󰂃", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰁹"];
+    let icons = ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰁹", "󰂃"];
     format!(
         "{}{} {}",
         icons[if let Ok(percent) = percent.trim().parse::<usize>() {
-            (percent / 10) - 1
+            percent / 10
         } else {
-            0
+            11
         }],
         if status.trim() == "Charging" {
             "󱐋"

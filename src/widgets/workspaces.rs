@@ -29,13 +29,14 @@ use crate::hyprland::Hyprland;
 
 #[derive(Deserialize, Debug, Hash, Eq, PartialEq, Clone)]
 struct WorkspaceInfo {
-    id: u32,
+    id: i32,
     name: String,
 }
 
 #[derive(Debug, Clone)]
 struct Workspace {
     info: WorkspaceInfo,
+    special: bool,
     widget: Box,
     slidein: Revealer,
     crossfade: Revealer,
@@ -43,7 +44,7 @@ struct Workspace {
 }
 
 impl Workspace {
-    fn new(info: WorkspaceInfo) -> Self {
+    fn new(info: WorkspaceInfo, special: bool) -> Self {
         let widget = Box::new(Orientation::Horizontal, 0);
         let slidein = Revealer::builder()
             .transition_type(RevealerTransitionType::SlideLeft)
@@ -51,7 +52,7 @@ impl Workspace {
             .build();
         let crossfade = Revealer::builder()
             .transition_type(RevealerTransitionType::Crossfade)
-            .transition_duration(1000)
+            .transition_duration(500)
             .build();
         let main = Box::new(Orientation::Horizontal, 0);
         let anchor = Box::default();
@@ -60,9 +61,13 @@ impl Workspace {
             .transition_duration(1000)
             .build();
         let expand = Box::default();
-        main.add_css_class("workspace");
+        if special {
+            main.add_css_class("specialworkspace")
+        } else {
+            main.add_css_class("workspace");
+        }
         anchor.add_css_class("anchor");
-        expand.add_css_class("w");
+        expand.add_css_class("expand");
         widget.append(&slidein);
         slidein.set_child(Some(&crossfade));
         crossfade.set_child(Some(&main));
@@ -71,6 +76,7 @@ impl Workspace {
         expander.set_child(Some(&expand));
         Self {
             info,
+            special,
             widget,
             slidein,
             crossfade,
@@ -79,14 +85,10 @@ impl Workspace {
     }
     async fn reveal(&self, reveal: bool) {
         if reveal {
-            self.slidein.set_transition_duration(250);
-            self.crossfade.set_transition_duration(500);
             self.slidein.set_reveal_child(reveal);
             sleep(Duration::from_millis(100)).await;
             self.crossfade.set_reveal_child(reveal);
         } else {
-            self.slidein.set_transition_duration(250);
-            self.crossfade.set_transition_duration(500);
             self.crossfade.set_reveal_child(reveal);
             sleep(Duration::from_millis(250)).await;
             self.slidein.set_reveal_child(reveal);
@@ -113,20 +115,27 @@ impl HyprlandWorkspacesExt for Hyprland {
         let mut workspaces: HashMap<WorkspaceInfo, Workspace> = HashMap::new();
         spawn_future_local(async move {
             for info in from_str::<Vec<WorkspaceInfo>>(&controller.ctl("j/workspaces")).unwrap() {
-                let workspace = Workspace::new(info.clone());
-                let before: Vec<(&WorkspaceInfo, &Workspace)> = workspaces
+                let workspace = Workspace::new(info.clone(), false);
+                let before: Option<(&WorkspaceInfo, &Workspace)> = workspaces
                     .iter()
-                    .filter(|w| w.0.id == info.id - 1)
-                    .collect();
-                if info.id == 1 {
+                    .filter(|w| w.0.id < info.id)
+                    .max_by_key(|(i, _)| i.id);
+                if info.id < 0 {
+                    let workspace = Workspace::new(info.clone(), true);
                     workspaces_widget.insert_child_after(&workspace.widget, None::<&Box>);
-                } else if let Some(before) = before.last() {
+                    workspace.reveal(true).await;
+                    workspaces.insert(info, workspace.clone());
+                    continue;
+                } else if let Some(before) = before {
                     workspaces_widget.insert_child_after(&workspace.widget, Some(&before.1.widget));
+                } else if info.id == 1 {
+                    workspaces_widget.insert_child_after(&workspace.widget, None::<&Box>);
                 } else {
                     workspaces_widget.append(&workspace.widget);
                 }
+
                 workspace.reveal(true).await;
-                workspaces.insert(info, workspace);
+                workspaces.insert(info, workspace.clone());
             }
             if let Some(current) =
                 workspaces.get(&from_str(&controller.ctl("j/activeworkspace")).unwrap())
@@ -138,53 +147,61 @@ impl HyprlandWorkspacesExt for Hyprland {
                     let mut event = event.split(">>");
                     match event.next() {
                         Some("workspacev2") => {
-                            println!("workspacev2");
                             if let Some(data) = event.next() {
                                 let data: Vec<&str> = data.split(",").collect();
+                                println!("{data:?}");
                                 let current = WorkspaceInfo {
-                                    id: data[0].parse::<u32>().unwrap(),
+                                    id: data[0].parse::<i32>().unwrap(),
                                     name: data[1].to_string(),
                                 };
                                 for (info, workspace) in &workspaces {
-                                    workspace.expand(*info == current);
+                                    if !workspace.special {
+                                        workspace.expand(*info == current);
+                                    }
                                 }
                             }
                         }
                         Some("createworkspacev2") => {
-                            println!("createworkspacev2");
+                            println!("::createworkspacev2");
                             if let Some(data) = event.next() {
                                 let data: Vec<&str> = data.split(",").collect();
                                 let info = WorkspaceInfo {
-                                    id: data[0].parse::<u32>().unwrap(),
+                                    id: data[0].parse::<i32>().unwrap(),
                                     name: data[1].to_string(),
                                 };
-                                let workspace = Workspace::new(info.clone());
-                                let widget = workspace.clone();
+                                let workspace = Workspace::new(info.clone(), false);
                                 let before: Option<(&WorkspaceInfo, &Workspace)> = workspaces
                                     .iter()
                                     .filter(|w| w.0.id < info.id)
                                     .max_by_key(|(i, _)| i.id);
-                                if info.id == 1 {
+                                if info.id < 0 {
+                                    let workspace = Workspace::new(info.clone(), true);
                                     workspaces_widget
                                         .insert_child_after(&workspace.widget, None::<&Box>);
+                                    workspace.reveal(true).await;
+                                    workspaces.insert(info, workspace.clone());
+                                    continue;
                                 } else if let Some(before) = before {
                                     workspaces_widget.insert_child_after(
                                         &workspace.widget,
                                         Some(&before.1.widget),
                                     );
+                                } else if info.id == 1 {
+                                    workspaces_widget
+                                        .insert_child_after(&workspace.widget, None::<&Box>);
                                 } else {
                                     workspaces_widget.append(&workspace.widget);
                                 }
-                                widget.reveal(true).await;
+                                workspace.reveal(true).await;
                                 workspaces.insert(info, workspace.clone());
                             }
                         }
                         Some("destroyworkspacev2") => {
-                            println!("destroyworkspacev2");
+                            println!("::destroyworkspacev2");
                             if let Some(data) = event.next() {
                                 let data: Vec<&str> = data.split(",").collect();
                                 let info = WorkspaceInfo {
-                                    id: data[0].parse::<u32>().unwrap(),
+                                    id: data[0].parse::<i32>().unwrap(),
                                     name: data[1].to_string(),
                                 };
                                 let ws = workspaces.clone();
@@ -201,7 +218,24 @@ impl HyprlandWorkspacesExt for Hyprland {
                                 });
                             }
                         }
-                        _ => {}
+                        Some("activespecial") => {
+                            if let Some(data) = event.next() {
+                                let data: Vec<&str> = data.split(",").collect();
+                                let workspace_name = data[0];
+                                let mut open = true;
+                                if workspace_name.is_empty() {
+                                    open = false
+                                }
+                                for (_, workspace) in &workspaces {
+                                    if workspace.special {
+                                        workspace.expand(open);
+                                    }
+                                }
+                            }
+                        }
+                        e => {
+                            println!("{e:?}")
+                        }
                     }
                 }
             }
