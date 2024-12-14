@@ -1,31 +1,5 @@
-use async_std::task::sleep;
-use chrono::Local;
-use gtk::gdk;
-use gtk::prelude::*;
-use gtk::{
-    gio,
-    glib::{self, idle_add_local, spawn_future_local, timeout_add_local, ControlFlow, MainContext},
-    Application, ApplicationWindow, Box, Button, CenterBox, CssProvider, EventControllerMotion,
-    GestureClick, Label, Orientation, Overlay, Revealer, RevealerTransitionType, Widget,
-};
-use gtk4 as gtk;
-use serde::Deserialize;
-use serde_json::from_str;
-use std::cell::Cell;
-use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::env::var;
-use std::io::Write;
-use std::io::{BufRead, BufReader};
-use std::os::unix::net::UnixStream;
-use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::mpsc as std_mpsc;
-use std::time::Duration;
-use tokio::sync::broadcast as tokio_broadcast;
-use tokio::sync::mpsc as tokio_mpsc;
-
-use crate::hyprland::Hyprland;
+use crate::*;
+use async_broadcast::{broadcast, InactiveReceiver, Receiver};
 
 #[derive(Deserialize, PartialEq)]
 struct WorkspaceInfo {
@@ -47,6 +21,7 @@ pub struct Root {
     left: Box,
     center: Box,
     right: Box,
+    recv: InactiveReceiver<bool>
 }
 
 impl Root {
@@ -82,6 +57,9 @@ impl Root {
         self.center.set_spacing(spacing);
         self.right.set_spacing(spacing);
     }
+    pub fn listen(&self) -> Receiver<bool> {
+        self.recv.activate_cloned()
+    }
 }
 
 pub trait HyprlandRootExt {
@@ -108,7 +86,7 @@ impl HyprlandRootExt for Hyprland {
         root.add_overlay(&content);
         let mut listener = self.listener();
         let mut controller = self.controller();
-        println!("what");
+        let (snd, recv) = broadcast(64);
         spawn_future_local(async move {
             loop {
                 if let Ok(event) = listener.recv().await {
@@ -143,8 +121,10 @@ impl HyprlandRootExt for Hyprland {
                                 == 0
                             {
                                 background.set_reveal_child(false);
+                                snd.broadcast(false).await.unwrap();
                             } else {
                                 background.set_reveal_child(true);
+                                snd.broadcast(true).await.unwrap();
                             }
                         }
                         _ => {}
@@ -158,6 +138,7 @@ impl HyprlandRootExt for Hyprland {
             left,
             center,
             right,
+            recv: recv.deactivate()
         }
     }
 }

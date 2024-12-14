@@ -1,43 +1,54 @@
-use async_std::task::sleep;
-use chrono::Local;
-use gtk::gdk;
-use gtk::prelude::*;
-use gtk::{
-    gio,
-    glib::{self, idle_add_local, spawn_future_local, timeout_add_local, ControlFlow, MainContext},
-    Application, ApplicationWindow, Box, Button, CenterBox, CssProvider, EventControllerMotion,
-    GestureClick, Label, Orientation, Overlay, Revealer, RevealerTransitionType, Widget,
-};
-use gtk4 as gtk;
-use serde::Deserialize;
-use serde_json::from_str;
-use std::cell::Cell;
-use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::env::var;
-use std::io::Write;
-use std::io::{BufRead, BufReader};
-use std::os::unix::net::UnixStream;
-use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::mpsc as std_mpsc;
-use std::time::Duration;
-use tokio::sync::broadcast as tokio_broadcast;
-use tokio::sync::mpsc as tokio_mpsc;
-use async_std::task::spawn;
-use zbus::connection::Builder;
+use crate::*;
+use async_broadcast::Receiver;
+use std::process::Command;
 
-async fn new() -> Box {
-    let bus = Builder::session()
-        .unwrap()
-        .internal_executor(false)
-        .build()
-        .await
+pub fn new(mut listen_to: Receiver<bool>, controller: Controller) -> Box {
+    let widget = Box::default();
+    widget.add_css_class("systray");
+    let lclick = GestureClick::new();
+    Command::new("eww")
+        .args(["open", "temp-gtk-bar-systray"])
+        .spawn()
         .unwrap();
-    spawn(async move {
-        bus.executor().tick().await;
+    lclick.connect_pressed(move |click, count, x, y| {
+        let mut controller = controller.clone();
+        spawn_future(async move {
+            if let Ok(res) = Command::new("eww").args(["get", "temp-systray"]).output() {
+                let opened = if res.stdout == "true\n".as_bytes() {
+                    true
+                } else {
+                    false
+                };
+                println!("{opened:?}");
+                let _ = Command::new("eww")
+                    .args(["update", &format!("temp-systray-reveal={}", !opened)])
+                    .spawn();
+                if opened {
+                    sleep(Duration::from_millis(100)).await;
+                } else {
+                    for i in 272..274 + 1 {
+                        controller.ctl(&format!(r#"keyword bindn ,mouse:{i},exec,bash -c "[[ $(eww get temp-systray-focus) == "false" ]] && eww update temp-systray-reveal=false && hyprctl --batch 'keyword unbind ,mouse:272;keyword unbind ,mouse:273;keyword unbind ,mouse:274;' && sleep 0.1 && eww update temp-systray=false" "#));
+                    }
+                }
+                let _ = Command::new("eww")
+                    .args(["update", &format!("temp-systray={}", !opened)])
+                    .spawn();
+            }
+        });
     });
-    Box::default()
+    widget.add_controller(lclick);
+    spawn_future_local(async move {
+        loop {
+            if let Ok(opaque) = listen_to.recv_direct().await {
+                spawn_future_local(async move {
+                    let _ = Command::new("eww")
+                        .args(["update", &format!("temp-systray-opaque={}", opaque)])
+                        .spawn();
+                });
+            }
+        }
+    });
+    widget
 }
 
 //NOTE :: wlr-tray is StatusNotifierItem stuff uses D-bus need to implement StatusNotifierHost

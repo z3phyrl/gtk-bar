@@ -1,10 +1,15 @@
+use async_std::prelude::*;
+use async_std::task::sleep;
 use chrono::Local;
 use gdk::Display;
 use gtk::gdk;
 use gtk::prelude::*;
 use gtk::{
     gio,
-    glib::{self, idle_add, idle_add_local, spawn_future, timeout_add_local, ControlFlow},
+    glib::{
+        self, clone, idle_add, idle_add_local, spawn_future, spawn_future_local, timeout_add_local,
+        ControlFlow,
+    },
     Application, ApplicationWindow, Box, Button, CenterBox, CssProvider, EventControllerMotion,
     GestureClick, Label, Orientation, Overlay, Revealer, RevealerTransitionType, Widget,
 };
@@ -13,22 +18,26 @@ use gtk4_layer_shell as layer_shell;
 use layer_shell::{Edge, Layer, LayerShell};
 use sass_rs::{compile_string, Options};
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::Duration;
+use std::{collections::HashMap, thread};
 use tokio::sync::mpsc;
+
+use serde::Deserialize;
+use serde_json::from_str;
 
 mod libs;
 mod widgets;
-use libs::hyprland;
+use libs::hyprland::{self, Controller, Hyprland};
 use widgets::{
     battery, clock,
     root::{HyprlandRootExt, Root},
-    workspaces::HyprlandWorkspacesExt,
     systray,
+    workspaces::HyprlandWorkspacesExt,
 };
 
 fn build_ui(app: &Application) {
     let mut hyprland = hyprland::new();
+    let hyprctl = hyprland.controller();
     let spacer = || -> Box { Box::default() };
     let mut root = hyprland.root();
     root.spacing(20);
@@ -38,6 +47,10 @@ fn build_ui(app: &Application) {
     root.left(&spacer());
     root.left(&workspace);
     root.left(&music);
+
+    // root.center();
+
+    root.right(&systray::new(root.listen(), hyprctl));
     root.right(&clock::new());
     root.right(&battery::new());
     root.right(&spacer());

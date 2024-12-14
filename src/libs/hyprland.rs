@@ -1,26 +1,11 @@
-// use async_channel::{unbounded, Receiver, Sender, };
-use async_broadcast::{broadcast, Receiver, Sender, InactiveReceiver};
-use chrono::Local;
-use gtk::gdk;
-use gtk::prelude::*;
-use gtk::{
-    gio,
-    glib::{self, idle_add_local, spawn_future_local, timeout_add_local, ControlFlow, MainContext},
-    Application, ApplicationWindow, Box, Button, CenterBox, CssProvider, EventControllerMotion,
-    GestureClick, Label, Orientation, Overlay, Revealer, RevealerTransitionType, Widget,
+use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
+use std::{
+    env::var,
+    io::{BufRead, BufReader, Write},
+    os::unix::net::UnixStream,
+    path::PathBuf,
 };
-use gtk4 as gtk;
-use serde::Deserialize;
-use serde_json::from_str;
-use std::cell::RefCell;
-use std::env::var;
-use std::io::Write;
-use std::io::{BufRead, BufReader};
-use std::os::unix::net::UnixStream;
-use std::path::PathBuf;
-use std::rc::Rc;
-use std::time::Duration;
-use tokio::sync::mpsc as tokio_mpsc;
+
 pub struct Hyprland {
     hypr_dir: PathBuf,
     events: UnixStream,
@@ -51,6 +36,11 @@ pub struct Controller {
 }
 
 impl Controller {
+    pub fn from_socket_path(socket_path: PathBuf) -> Self {
+    Controller {
+            socket_path,
+        }
+    }
     pub fn ctl(&mut self, req: &str) -> String {
         let mut stream = UnixStream::connect(self.socket_path.clone()).unwrap();
         write!(stream, "{req}").unwrap();
@@ -72,7 +62,7 @@ impl Hyprland {
         let reader = BufReader::new(events);
         for line in reader.lines() {
             if let Ok(line) = line {
-                println!("sender {:?}", self.sender.len());
+                // println!("sender {:?}", self.sender.len());
                 self.sender.broadcast_direct(line).await.unwrap();
             }
         }

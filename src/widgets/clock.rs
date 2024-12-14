@@ -1,14 +1,4 @@
-use chrono::Local;
-use gtk::gdk;
-use gtk::prelude::*;
-use gtk::{
-    gio,
-    glib::{self, timeout_add_local, ControlFlow},
-    Application, ApplicationWindow, Box, Button, CenterBox, CssProvider, EventControllerMotion,
-    GestureClick, Label, Orientation, Overlay, Revealer, RevealerTransitionType, Widget,
-};
-use gtk4 as gtk;
-use std::time::Duration;
+use crate::*;
 
 pub fn new() -> Box {
     let widget = Box::new(Orientation::Horizontal, 5);

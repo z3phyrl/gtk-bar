@@ -1,31 +1,4 @@
-use async_std::task::sleep;
-use chrono::Local;
-use gtk::gdk;
-use gtk::prelude::*;
-use gtk::{
-    gio,
-    glib::{self, idle_add_local, spawn_future_local, timeout_add_local, ControlFlow, MainContext},
-    Application, ApplicationWindow, Box, Button, CenterBox, CssProvider, EventControllerMotion,
-    GestureClick, Label, Orientation, Overlay, Revealer, RevealerTransitionType, Widget,
-};
-use gtk4 as gtk;
-use serde::Deserialize;
-use serde_json::from_str;
-use std::cell::Cell;
-use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::env::var;
-use std::io::Write;
-use std::io::{BufRead, BufReader};
-use std::os::unix::net::UnixStream;
-use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::mpsc as std_mpsc;
-use std::time::Duration;
-use tokio::sync::broadcast as tokio_broadcast;
-use tokio::sync::mpsc as tokio_mpsc;
-
-use crate::hyprland::Hyprland;
+use crate::*;
 
 #[derive(Deserialize, Debug, Hash, Eq, PartialEq, Clone)]
 struct WorkspaceInfo {
@@ -35,7 +8,6 @@ struct WorkspaceInfo {
 
 #[derive(Debug, Clone)]
 struct Workspace {
-    info: WorkspaceInfo,
     special: bool,
     widget: Box,
     slidein: Revealer,
@@ -44,7 +16,7 @@ struct Workspace {
 }
 
 impl Workspace {
-    fn new(info: WorkspaceInfo, special: bool) -> Self {
+    fn new(special: bool) -> Self {
         let widget = Box::new(Orientation::Horizontal, 0);
         let slidein = Revealer::builder()
             .transition_type(RevealerTransitionType::SlideLeft)
@@ -75,7 +47,6 @@ impl Workspace {
         main.append(&expander);
         expander.set_child(Some(&expand));
         Self {
-            info,
             special,
             widget,
             slidein,
@@ -115,13 +86,13 @@ impl HyprlandWorkspacesExt for Hyprland {
         let mut workspaces: HashMap<WorkspaceInfo, Workspace> = HashMap::new();
         spawn_future_local(async move {
             for info in from_str::<Vec<WorkspaceInfo>>(&controller.ctl("j/workspaces")).unwrap() {
-                let workspace = Workspace::new(info.clone(), false);
+                let workspace = Workspace::new(false);
                 let before: Option<(&WorkspaceInfo, &Workspace)> = workspaces
                     .iter()
                     .filter(|w| w.0.id < info.id)
                     .max_by_key(|(i, _)| i.id);
                 if info.id < 0 {
-                    let workspace = Workspace::new(info.clone(), true);
+                    let workspace = Workspace::new(true);
                     workspaces_widget.insert_child_after(&workspace.widget, None::<&Box>);
                     workspace.reveal(true).await;
                     workspaces.insert(info, workspace.clone());
@@ -149,7 +120,7 @@ impl HyprlandWorkspacesExt for Hyprland {
                         Some("workspacev2") => {
                             if let Some(data) = event.next() {
                                 let data: Vec<&str> = data.split(",").collect();
-                                println!("{data:?}");
+                                // println!("{data:?}");
                                 let current = WorkspaceInfo {
                                     id: data[0].parse::<i32>().unwrap(),
                                     name: data[1].to_string(),
@@ -162,20 +133,20 @@ impl HyprlandWorkspacesExt for Hyprland {
                             }
                         }
                         Some("createworkspacev2") => {
-                            println!("::createworkspacev2");
+                            // println!("::createworkspacev2");
                             if let Some(data) = event.next() {
                                 let data: Vec<&str> = data.split(",").collect();
                                 let info = WorkspaceInfo {
                                     id: data[0].parse::<i32>().unwrap(),
                                     name: data[1].to_string(),
                                 };
-                                let workspace = Workspace::new(info.clone(), false);
+                                let workspace = Workspace::new(false);
                                 let before: Option<(&WorkspaceInfo, &Workspace)> = workspaces
                                     .iter()
                                     .filter(|w| w.0.id < info.id)
                                     .max_by_key(|(i, _)| i.id);
                                 if info.id < 0 {
-                                    let workspace = Workspace::new(info.clone(), true);
+                                    let workspace = Workspace::new(true);
                                     workspaces_widget
                                         .insert_child_after(&workspace.widget, None::<&Box>);
                                     workspace.reveal(true).await;
@@ -197,7 +168,7 @@ impl HyprlandWorkspacesExt for Hyprland {
                             }
                         }
                         Some("destroyworkspacev2") => {
-                            println!("::destroyworkspacev2");
+                            // println!("::destroyworkspacev2");
                             if let Some(data) = event.next() {
                                 let data: Vec<&str> = data.split(",").collect();
                                 let info = WorkspaceInfo {
@@ -233,8 +204,8 @@ impl HyprlandWorkspacesExt for Hyprland {
                                 }
                             }
                         }
-                        e => {
-                            println!("{e:?}")
+                        _e => {
+                            // println!("{e:?}")
                         }
                     }
                 }
