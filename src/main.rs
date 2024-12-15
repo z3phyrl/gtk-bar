@@ -52,7 +52,9 @@ fn build_ui(app: &Application) {
 
     root.right(&systray::new(root.listen(), hyprctl));
     root.right(&clock::new());
-    root.right(&battery::new());
+    if let Some(batt) = battery::new() {
+        root.right(&batt.widget);
+    }
     root.right(&spacer());
 
     window(app, &root);
@@ -65,7 +67,7 @@ fn window(app: &Application, root: &Root) {
     let window = ApplicationWindow::builder()
         .application(app)
         .css_classes(["bar"])
-        .default_width(1920)
+        .default_width(2560)
         .default_height(50)
         .child(&root.widget())
         .build();

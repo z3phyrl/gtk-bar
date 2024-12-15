@@ -45,6 +45,12 @@ $special-workspace-color: #B8BB26;
 .systray {
   min-width: 30px;
   margin: 10px;
+  margin-right: 0px;
   border-radius: 30px;
   background-color: rgba(251, 241, 199, 0.2);
+}
+
+.systray > :nth-child(1) {
+  margin-left: 15px;
+  margin-right: 15px;
 }

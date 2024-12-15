@@ -16,7 +16,7 @@ struct Workspace {
 }
 
 impl Workspace {
-    fn new(special: bool) -> Self {
+    fn new(info: WorkspaceInfo, special: bool) -> Self {
         let widget = Box::new(Orientation::Horizontal, 0);
         let slidein = Revealer::builder()
             .transition_type(RevealerTransitionType::SlideLeft)
@@ -46,6 +46,11 @@ impl Workspace {
         main.append(&anchor);
         main.append(&expander);
         expander.set_child(Some(&expand));
+        let lclick = GestureClick::new();
+        lclick.connect_pressed(|click, count, x, y| {
+            
+        });
+        widget.add_controller(lclick);
         Self {
             special,
             widget,
@@ -86,13 +91,13 @@ impl HyprlandWorkspacesExt for Hyprland {
         let mut workspaces: HashMap<WorkspaceInfo, Workspace> = HashMap::new();
         spawn_future_local(async move {
             for info in from_str::<Vec<WorkspaceInfo>>(&controller.ctl("j/workspaces")).unwrap() {
-                let workspace = Workspace::new(false);
+                let workspace = Workspace::new(info.clone(), false);
                 let before: Option<(&WorkspaceInfo, &Workspace)> = workspaces
                     .iter()
                     .filter(|w| w.0.id < info.id)
                     .max_by_key(|(i, _)| i.id);
                 if info.id < 0 {
-                    let workspace = Workspace::new(true);
+                    let workspace = Workspace::new(info.clone(), true);
                     workspaces_widget.insert_child_after(&workspace.widget, None::<&Box>);
                     workspace.reveal(true).await;
                     workspaces.insert(info, workspace.clone());
@@ -140,13 +145,13 @@ impl HyprlandWorkspacesExt for Hyprland {
                                     id: data[0].parse::<i32>().unwrap(),
                                     name: data[1].to_string(),
                                 };
-                                let workspace = Workspace::new(false);
+                                let workspace = Workspace::new(info.clone(), false);
                                 let before: Option<(&WorkspaceInfo, &Workspace)> = workspaces
                                     .iter()
                                     .filter(|w| w.0.id < info.id)
                                     .max_by_key(|(i, _)| i.id);
                                 if info.id < 0 {
-                                    let workspace = Workspace::new(true);
+                                    let workspace = Workspace::new(info.clone(), true);
                                     workspaces_widget
                                         .insert_child_after(&workspace.widget, None::<&Box>);
                                     workspace.reveal(true).await;
