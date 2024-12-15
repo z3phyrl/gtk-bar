@@ -33,6 +33,7 @@ use widgets::{
     root::{HyprlandRootExt, Root},
     systray,
     workspaces::HyprlandWorkspacesExt,
+    volume,
 };
 
 fn build_ui(app: &Application) {
@@ -49,7 +50,8 @@ fn build_ui(app: &Application) {
     root.left(&music);
 
     // root.center();
-
+    
+    root.right(&volume::new());
     root.right(&systray::new(root.listen(), hyprctl));
     root.right(&clock::new());
     if let Some(batt) = battery::new() {

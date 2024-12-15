@@ -42,10 +42,10 @@ $special-workspace-color: #B8BB26;
   background-color: $special-workspace-color;
 }
 
-.systray {
+.container {
   min-width: 30px;
-  margin: 10px;
-  margin-right: 0px;
+  margin-top: 10px;
+  margin-bottom: 10px;
   border-radius: 30px;
   background-color: rgba(251, 241, 199, 0.2);
 }

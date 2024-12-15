@@ -4,6 +4,7 @@ use std::process::Command;
 
 pub fn new(mut listen_to: Receiver<bool>, controller: Controller) -> Box {
     let widget = Box::default();
+    widget.add_css_class("container");
     widget.add_css_class("systray");
     widget.append(&Label::new(Some("^")));
     let lclick = GestureClick::new();
