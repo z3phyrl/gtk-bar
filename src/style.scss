@@ -43,14 +43,66 @@ $special-workspace-color: #B8BB26;
 }
 
 .container {
-  min-width: 30px;
   margin-top: 10px;
   margin-bottom: 10px;
+  padding-left: 15px;
+  padding-right: 15px;
   border-radius: 30px;
   background-color: rgba(251, 241, 199, 0.2);
 }
 
-.systray > :nth-child(1) {
-  margin-left: 15px;
-  margin-right: 15px;
+.volume > label {
+  margin-top: 3px;
+  margin-bottom: 3px;
+}
+scale {
+  all:unset;
+}
+scale trough {
+  all: unset;
+  background-color: rgba($color: $bg ,$alpha: 0.2);
+  min-width: 100px;
+  min-height: 10px;
+  border-radius: 10px;
+}
+scale trough highlight {
+  all:unset;
+  background-color: rgba(251, 241, 199, 0.6);
+}
+scale slider {
+  all:unset;
+  min-width: 0px;
+  min-height: 0px;
+}
+.popup-volume {
+  font-family: "Mononoki";
+  font-size: 20px;
+  color: $fg;
+}
+.popup-volume > scale {
+  margin: 10px;
+}
+.popup-volume > scale trough {
+  background-color: rgba($color: $bg, $alpha: 0.45);
+  min-width: 256px;
+  min-height: 50px;
+  border-radius: 50px;
+}
+
+.icon-container {
+  font-size: 24px;
+  min-width: 0.5em;
+  padding-right: .34em;
+  margin-top: 13px;
+  margin-bottom: 13px;
+}
+
+.icon {
+  all:unset;
+  font-size: 24px;
+  padding-right: .34em;
+}
+
+.hidden {
+  opacity: 0.3;
 }

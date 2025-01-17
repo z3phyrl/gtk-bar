@@ -1,60 +1,50 @@
 use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
+use lazy_static::lazy_static;
 use std::{
+    boxed::Box,
     env::var,
     io::{BufRead, BufReader, Write},
     os::unix::net::UnixStream,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
+lazy_static! {
+    static ref HYPRLAND_INSTANCE_SIGNATURE: String = var("HYPRLAND_INSTANCE_SIGNATURE").unwrap();
+    static ref XDG_RUNTIME_DIR: PathBuf = var("XDG_RUNTIME_DIR").unwrap().into();
+    static ref HYPRDIR: PathBuf = XDG_RUNTIME_DIR
+        .join("hypr")
+        .join(HYPRLAND_INSTANCE_SIGNATURE.as_str());
+    static ref CONTROL_SOCK_PATH: PathBuf = HYPRDIR.join(".socket.sock");
+    static ref EVENT_SOCK_PATH: PathBuf = HYPRDIR.join(".socket2.sock");
+}
+
 pub struct Hyprland {
-    hypr_dir: PathBuf,
     events: UnixStream,
     sender: Sender<String>,
     receiver: InactiveReceiver<String>,
 }
 
 pub fn new() -> Hyprland {
-    let hyprland_instance_signature = var("HYPRLAND_INSTANCE_SIGNATURE").unwrap();
-    let xdg_runtime_dir = var("XDG_RUNTIME_DIR").unwrap();
-    let mut hypr_dir = PathBuf::from(xdg_runtime_dir);
-    hypr_dir.push("hypr");
-    hypr_dir.push(hyprland_instance_signature);
-    let events_path = hypr_dir.join(".socket2.sock");
-    let events = UnixStream::connect(events_path).unwrap();
-    let (sender, receiver) = broadcast(1024);
-    Hyprland {
-        hypr_dir,
-        events,
-        sender,
-        receiver: receiver.deactivate(),
-    }
+    Hyprland::new()
 }
 
-#[derive(Clone)]
-pub struct Controller {
-    socket_path: PathBuf,
-}
-
-impl Controller {
-    pub fn from_socket_path(socket_path: PathBuf) -> Self {
-    Controller {
-            socket_path,
-        }
-    }
-    pub fn ctl(&mut self, req: &str) -> String {
-        let mut stream = UnixStream::connect(self.socket_path.clone()).unwrap();
-        write!(stream, "{req}").unwrap();
-        let mut buf = Vec::new();
-        let mut reader = BufReader::new(stream);
-        reader.read_until(b';', &mut buf).unwrap();
-        String::from_utf8(buf).unwrap()
-    }
+pub fn ctl(req: &str) -> String {
+    let mut stream = UnixStream::connect(CONTROL_SOCK_PATH.as_path()).unwrap();
+    write!(stream, "{req}").unwrap();
+    let mut buf = Vec::new();
+    let mut reader = BufReader::new(stream);
+    reader.read_until(b';', &mut buf).unwrap();
+    String::from_utf8(buf).unwrap()
 }
 
 impl Hyprland {
-    pub fn controller(&self) -> Controller {
-        Controller {
-            socket_path: self.hypr_dir.join(".socket.sock"),
+    pub fn new() -> Self {
+        let events = UnixStream::connect(EVENT_SOCK_PATH.as_path()).unwrap();
+        let (sender, receiver) = broadcast(1024);
+        Self {
+            events,
+            sender,
+            receiver: receiver.deactivate(),
         }
     }
     pub async fn listen(&mut self) {

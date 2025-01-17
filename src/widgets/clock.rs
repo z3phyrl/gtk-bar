@@ -1,7 +1,7 @@
 use crate::*;
 
 pub fn new() -> Box {
-    let widget = Box::new(Orientation::Horizontal, 5);
+    let widget = Box::new(Horizontal, 5);
     let icon = Label::new(Some("󰥔 "));
     let time = Label::new(Some(&Local::now().format("%H : %M").to_string()));
     widget.append(&icon);

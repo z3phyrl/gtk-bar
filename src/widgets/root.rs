@@ -1,5 +1,6 @@
 use crate::*;
 use async_broadcast::{broadcast, InactiveReceiver, Receiver};
+use hyprland::ctl;
 
 #[derive(Deserialize, PartialEq)]
 struct WorkspaceInfo {
@@ -18,10 +19,10 @@ struct Client {
 pub struct Root {
     root: Overlay,
     bg: Revealer,
-    left: Box,
-    center: Box,
-    right: Box,
-    recv: InactiveReceiver<bool>
+    pub left: Box,
+    pub center: Box,
+    pub right: Box,
+    recv: InactiveReceiver<bool>,
 }
 
 impl Root {
@@ -62,83 +63,74 @@ impl Root {
     }
 }
 
-pub trait HyprlandRootExt {
-    fn root(&self) -> Root;
-}
-
-impl HyprlandRootExt for Hyprland {
-    fn root(&self) -> Root {
-        let bg = Revealer::builder()
-            .transition_type(RevealerTransitionType::Crossfade)
-            .transition_duration(500)
-            .child(&Box::builder().css_classes(["bg"]).build())
-            .build();
-        let background = bg.clone();
-        let root = Overlay::builder().child(&bg).build();
-        let left = Box::new(Orientation::Horizontal, 0);
-        let center = Box::new(Orientation::Horizontal, 0);
-        let right = Box::new(Orientation::Horizontal, 0);
-        let content = CenterBox::builder()
-            .start_widget(&left)
-            .center_widget(&center)
-            .end_widget(&right)
-            .build();
-        root.add_overlay(&content);
-        let mut listener = self.listener();
-        let mut controller = self.controller();
-        let (snd, recv) = broadcast(64);
-        spawn_future_local(async move {
-            loop {
-                if let Ok(event) = listener.recv().await {
-                    let mut event = event.split(">>");
-                    let name = event.next();
-                    match name {
-                        Some("workspacev2")
-                        | Some("openwindow")
-                        | Some("closewindow")
-                        | Some("changefloatingmode") => {
-                            let clients: Vec<Client> =
-                                from_str(&controller.ctl("j/clients")).unwrap();
-                            let current_workspace = if name == Some("workspacev2") {
-                                if let Some(data) = event.next() {
-                                    let data: Vec<&str> = data.split(",").collect();
-                                    WorkspaceInfo {
-                                        id: data[0].parse::<i32>().unwrap(),
-                                        name: data[1].to_string(),
-                                    }
-                                } else {
-                                    from_str(&controller.ctl("j/activeworkspace")).unwrap()
+pub fn new(mut event_listener: Receiver<String>) -> Root {
+    let bg = Revealer::builder()
+        .transition_type(Crossfade)
+        .transition_duration(500)
+        .child(&Box::builder().css_classes(["bg"]).build())
+        .build();
+    let background = bg.clone();
+    let root = Overlay::builder().child(&bg).build();
+    let left = Box::new(Horizontal, 0);
+    let center = Box::new(Horizontal, 0);
+    let right = Box::new(Horizontal, 0);
+    let content = CenterBox::builder()
+        .start_widget(&left)
+        .center_widget(&center)
+        .end_widget(&right)
+        .build();
+    root.add_overlay(&content);
+    let (snd, recv) = broadcast(64);
+    spawn_future_local(async move {
+        loop {
+            if let Ok(event) = event_listener.recv().await {
+                let mut event = event.split(">>");
+                let name = event.next();
+                match name {
+                    Some("workspacev2")
+                    | Some("openwindow")
+                    | Some("closewindow")
+                    | Some("changefloatingmode") => {
+                        let clients: Vec<Client> = from_str(&ctl("j/clients")).unwrap();
+                        let current_workspace = if name == Some("workspacev2") {
+                            if let Some(data) = event.next() {
+                                let data: Vec<&str> = data.split(",").collect();
+                                WorkspaceInfo {
+                                    id: data[0].parse::<i32>().unwrap(),
+                                    name: data[1].to_string(),
                                 }
                             } else {
-                                from_str(&controller.ctl("j/activeworkspace")).unwrap()
-                            };
-                            if clients
-                                .iter()
-                                .filter(|c| {
-                                    c.workspace == current_workspace && !c.hidden && !c.floating
-                                })
-                                .count()
-                                == 0
-                            {
-                                background.set_reveal_child(false);
-                                snd.broadcast(false).await.unwrap();
-                            } else {
-                                background.set_reveal_child(true);
-                                snd.broadcast(true).await.unwrap();
+                                from_str(&ctl("j/activeworkspace")).unwrap()
                             }
+                        } else {
+                            from_str(&ctl("j/activeworkspace")).unwrap()
+                        };
+                        if clients
+                            .iter()
+                            .filter(|c| {
+                                c.workspace == current_workspace && !c.hidden && !c.floating
+                            })
+                            .count()
+                            == 0
+                        {
+                            background.set_reveal_child(false);
+                            snd.broadcast(false).await.unwrap();
+                        } else {
+                            background.set_reveal_child(true);
+                            snd.broadcast(true).await.unwrap();
                         }
-                        _ => {}
                     }
+                    _ => {}
                 }
             }
-        });
-        Root {
-            root,
-            bg,
-            left,
-            center,
-            right,
-            recv: recv.deactivate()
         }
+    });
+    Root {
+        root,
+        bg,
+        left,
+        center,
+        right,
+        recv: recv.deactivate(),
     }
 }

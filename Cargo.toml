@@ -5,16 +5,19 @@ edition = "2021"
 
 [dependencies]
 alsa = "0.9.1"
+anyhow = "1.0.94"
 async-broadcast = "0.7.1"
 async-channel = "2.3.1"
 async-std = "1.13.0"
 chrono = "0.4.38"
-chronos = "0.0.0"
 gtk4 = {version = "0.9.3", features = ["v4_16"]}
 gtk4-layer-shell = "0.4.0"
+lazy_static = "1.5.0"
+libpulse-binding = "2.28.2"
+mpd_client = "1.4.1"
+pulseaudio = "0.2.1"
 pulsectl-rs = "0.3.2"
 sass-rs = "0.2.2"
 serde = { version = "1.0.214", features = ["derive"] }
 serde_json = "1.0.132"
 tokio = { version = "1.41.0", features = ["full"] }
-zbus = "5.1.1"

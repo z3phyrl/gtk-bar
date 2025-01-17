@@ -7,57 +7,54 @@ use gtk::prelude::*;
 use gtk::{
     gio,
     glib::{
-        self, clone, idle_add, idle_add_local, spawn_future, spawn_future_local, timeout_add_local,
-        ControlFlow,
+        self, clone, idle_add, idle_add_local, signal::Propagation, spawn_future,
+        spawn_future_local, timeout_add_local, ControlFlow,
     },
     Application, ApplicationWindow, Box, Button, CenterBox, CssProvider, EventControllerMotion,
-    GestureClick, Label, Orientation, Overlay, Revealer, RevealerTransitionType, Widget,
+    EventControllerScroll, EventControllerScrollFlags, GestureClick, Label, Orientation::{Vertical, Horizontal}, Overlay,
+    Revealer, RevealerTransitionType::{Crossfade, SlideLeft, SlideRight}, Scale, Widget,
 };
 use gtk4 as gtk;
 use gtk4_layer_shell as layer_shell;
 use layer_shell::{Edge, Layer, LayerShell};
 use sass_rs::{compile_string, Options};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use std::{collections::HashMap, thread};
 use tokio::sync::mpsc;
 
 use serde::Deserialize;
 use serde_json::from_str;
-
 mod libs;
 mod widgets;
-use libs::hyprland::{self, Controller, Hyprland};
+mod windows;
+use libs::hyprland;
+use libs::shared_widget::spacer;
 use widgets::{
     battery, clock,
-    root::{HyprlandRootExt, Root},
-    systray,
-    workspaces::HyprlandWorkspacesExt,
-    volume,
+    root::{self, Root},
+    systray, volume, workspaces, music,
 };
 
 fn build_ui(app: &Application) {
     let mut hyprland = hyprland::new();
-    let hyprctl = hyprland.controller();
-    let spacer = || -> Box { Box::default() };
-    let mut root = hyprland.root();
-    root.spacing(20);
-    let workspace = hyprland.workspaces();
-    let music = Box::default();
-    music.append(&Label::new(Some("Music")));
-    root.left(&spacer());
-    root.left(&workspace);
-    root.left(&music);
+    let mut root = root::new(hyprland.listener());
+    root.left.set_spacing(5);
+    root.center.set_spacing(15);
+    root.right.set_spacing(15);
+    root.left(&spacer(15));
+    root.left(&workspaces::new(hyprland.listener()));
+    root.left(&music::new());
 
     // root.center();
-    
-    root.right(&volume::new());
-    root.right(&systray::new(root.listen(), hyprctl));
+
+    root.right(&volume::new(app));
+    root.right(&systray::new(root.listen()));
     root.right(&clock::new());
     if let Some(batt) = battery::new() {
         root.right(&batt.widget);
     }
-    root.right(&spacer());
+    root.right(&spacer(0));
 
     window(app, &root);
     async_std::task::spawn(async move {
@@ -69,7 +66,7 @@ fn window(app: &Application, root: &Root) {
     let window = ApplicationWindow::builder()
         .application(app)
         .css_classes(["bar"])
-        .default_width(2560)
+        .default_width(1920)
         .default_height(50)
         .child(&root.widget())
         .build();

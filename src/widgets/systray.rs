@@ -1,8 +1,9 @@
 use crate::*;
 use async_broadcast::Receiver;
+use hyprland::ctl;
 use std::process::Command;
 
-pub fn new(mut listen_to: Receiver<bool>, controller: Controller) -> Box {
+pub fn new(mut listen_to: Receiver<bool>) -> Box {
     let widget = Box::default();
     widget.add_css_class("container");
     widget.add_css_class("systray");
@@ -13,7 +14,6 @@ pub fn new(mut listen_to: Receiver<bool>, controller: Controller) -> Box {
         .spawn()
         .unwrap();
     lclick.connect_pressed(move |click, count, x, y| {
-        let mut controller = controller.clone();
         spawn_future(async move {
             if let Ok(res) = Command::new("eww").args(["get", "temp-systray"]).output() {
                 let opened = if res.stdout == "true\n".as_bytes() {
@@ -29,7 +29,7 @@ pub fn new(mut listen_to: Receiver<bool>, controller: Controller) -> Box {
                     sleep(Duration::from_millis(100)).await;
                 } else {
                     for i in 272..274 + 1 {
-                        controller.ctl(&format!(r#"keyword bindn ,mouse:{i},exec,bash -c "[[ $(eww get temp-systray-focus) == "false" ]] && eww update temp-systray-reveal=false && hyprctl --batch 'keyword unbind ,mouse:272;keyword unbind ,mouse:273;keyword unbind ,mouse:274;' && sleep 0.1 && eww update temp-systray=false" "#));
+                        ctl(&format!(r#"keyword bindn ,mouse:{i},exec,bash -c "[[ $(eww get temp-systray-focus) == "false" ]] && eww update temp-systray-reveal=false && hyprctl --batch 'keyword unbind ,mouse:272;keyword unbind ,mouse:273;keyword unbind ,mouse:274;' && sleep 0.1 && eww update temp-systray=false" "#));
                     }
                 }
                 let _ = Command::new("eww")
